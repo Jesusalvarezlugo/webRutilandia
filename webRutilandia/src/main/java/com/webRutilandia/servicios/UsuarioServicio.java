@@ -8,6 +8,7 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLEncoder;
 
 import org.springframework.stereotype.Service;
 
@@ -150,6 +151,34 @@ public boolean verificarContrasenia(String email, String contrasenia) throws IOE
         return true;
     }
     return false; // Si no es OK, la contraseña no es correcta
+}
+
+public UsuarioDto obtenerDetallesUsuario(String email, String token) throws IOException, URISyntaxException {
+    // Construir la URL del endpoint que retorna los detalles del usuario, por ejemplo:
+    URI uri = new URI("http://localhost:8082/api/usuarios/detalles?email=" + URLEncoder.encode(email, "UTF-8"));
+    URL url = uri.toURL();
+    HttpURLConnection conexion = (HttpURLConnection) url.openConnection();
+    conexion.setRequestMethod("GET");
+    // Si la API requiere autenticación, agrega el token en la cabecera:
+    conexion.setRequestProperty("Authorization", "Bearer " + token);
+    
+    int codigoRespuesta = conexion.getResponseCode();
+    if (codigoRespuesta == HttpURLConnection.HTTP_OK) {
+        BufferedReader in = new BufferedReader(new InputStreamReader(conexion.getInputStream()));
+        StringBuilder response = new StringBuilder();
+        String inputLine;
+        while ((inputLine = in.readLine()) != null) {
+            response.append(inputLine);
+        }
+        in.close();
+        
+        ObjectMapper mapper = new ObjectMapper();
+        UsuarioDto usuario = mapper.readValue(response.toString(), UsuarioDto.class);
+        return usuario;
+    } else {
+        System.out.println("Error al obtener detalles del usuario, código: " + codigoRespuesta);
+        return null;
+    }
 }
 
 

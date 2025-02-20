@@ -70,20 +70,20 @@ public class UsuarioControlador {
                                    @RequestParam("apellido2") String apellido2,
                                    @RequestParam("email") String email,
                                    @RequestParam("telefono") String telefono,
-                                   @RequestParam(value = "contrasenia", required = false) String contrasenia,
-                                   @RequestParam(value = "repContrasenia", required = false) String repNuevaContrasenia,
+                                   @RequestParam(value = "nuevaContrasenia", required = false) String nuevaContrasenia,
+                                   @RequestParam(value = "repNuevaContrasenia", required = false) String repNuevaContrasenia,
+                                   @RequestParam(value = "contraseniaActual", required = false) String contraseniaActual,
                                    HttpSession session) throws IOException, URISyntaxException {
 
         // Obtener el usuario desde la sesión para realizar la modificación
         UsuarioDto usuario = (UsuarioDto) session.getAttribute("usuario");
 
-        
         System.out.println("Nombre: " + nombre);
         System.out.println("Apellido1: " + apellido1);
         System.out.println("Apellido2: " + apellido2);
         System.out.println("Email: " + email);
         System.out.println("Teléfono: " + telefono);
-       
+        
         // Si no hay usuario en sesión, redirigir a login
         if (usuario == null) {
             return "redirect:/login.jsp"; // Si el usuario no está autenticado, redirige al login
@@ -91,44 +91,46 @@ public class UsuarioControlador {
 
         // Validar si el email está siendo usado por otro usuario
         if (!email.equals(usuario.getEmail()) && usuarioServicio.emailExiste(email)) {
-            // Si el email es distinto y ya existe en la base de datos, devolver un mensaje de error
-            return "redirect:/errorEmailExistente.jsp"; // Redirige a una página de error
+            return "redirect:/errorEmailExistente.jsp"; // Redirige a una página de error si el email ya existe
+        }
+        
+        // Si se quiere cambiar la contraseña
+        if (nuevaContrasenia != null && !nuevaContrasenia.isEmpty()) {
+            // Verificar que se haya proporcionado la contraseña actual
+            if (contraseniaActual == null || contraseniaActual.isEmpty()) {
+                return "redirect:/errorContraseniaIncorrecta.jsp";
+            }
+            // Verificar que la contraseña actual sea correcta
+            if (!usuarioServicio.verificarContrasenia(usuario.getEmail(), contraseniaActual)) {
+                return "redirect:/errorContraseniaIncorrecta.jsp";
+            }
+            // Verificar que la nueva contraseña coincida con su confirmación
+            if (!nuevaContrasenia.equals(repNuevaContrasenia)) {
+                return "redirect:/errorContraseniaNoCoincide.jsp";
+            }
+            // Encriptar la nueva contraseña y actualizar
+            usuario.setContrasenia(Utilidades.encriptarContrasenia(nuevaContrasenia));
         }
 
-        // Si la contraseña es cambiada, verificar si la antigua es correcta
-        if (contrasenia != null && !contrasenia.isEmpty()) {
-            if (!usuarioServicio.verificarContrasenia(usuario.getEmail(), contrasenia)) {
-                return "redirect:/errorContraseniaIncorrecta.jsp"; // Si la contraseña es incorrecta, redirige a la página de error
-            }
-
-            // Si la nueva contraseña es distinta de la anterior, verificar si coincide
-            if (!contrasenia.equals(repNuevaContrasenia)) {
-                return "redirect:/errorContraseniaNoCoincide.jsp"; // Si las contraseñas no coinciden, redirige a una página de error
-            }
-
-            // Encriptar la nueva contraseña antes de actualizarla
-            usuario.setContrasenia(Utilidades.encriptarContrasenia(contrasenia));
-        }
-
-        // Actualizar los campos del usuario
+        // Actualizar los demás campos del usuario
         usuario.setNombre(nombre);
         usuario.setApellidos(apellido1 + " " + apellido2);
         usuario.setEmail(email);
         usuario.setTelefono(telefono);
-       
 
         // Enviar los datos a la API para actualizar el usuario
         try {
             String respuesta = usuarioServicio.actualizarUsuario(usuario);
             if ("success".equals(respuesta)) {
-                return "redirect:/exito.jsp"; // Redirigir al perfil del usuario tras una actualización exitosa
+                return "redirect:/exito.jsp"; // Actualización exitosa
             } else {
-                return "redirect:/errorActualizacion.jsp"; // Si hubo algún error, redirigir a página de error
+                return "redirect:/errorActualizacion.jsp";
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return "redirect:/error.jsp"; // En caso de error, redirigir a una página de error
+            return "redirect:/error.jsp";
         }
     }
+
 
 }
